@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block title %}Verify Document — Tag Verification{% endblock %}
+{% block extra_head %}
+<style>
+  .drop-zone { border: 2px dashed var(--border); border-radius: 10px; padding: 40px; text-align: center; cursor: pointer; transition: border-color .2s, background .2s; }
+  .drop-zone:hover, .drop-zone.dragover { border-color: var(--primary); background: rgba(59,130,246,.05); }
+  .result-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-top: 1px solid var(--border); font-size: 13px; }
+  .result-row:hover { background: rgba(255,255,255,.02); }
+  #result-panel { display: none; }
+  .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Verify Document</div>
+  <div class="page-subtitle">Upload a PDF or image to extract and verify all tag numbers against the CTDB</div>
+</div>
+
+<div class="grid grid-2 gap-16">
+  <!-- Upload Form -->
+  <div>
+    <div class="card">
+      <div class="card-title">Document Details</div>
+
+      <form id="verify-form" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="form-group" style="margin-bottom:14px">
+          <label>Document Number *</label>
+          <input type="text" id="doc-number" name="document_number" placeholder="e.g. P-001" required style="width:100%">
+        </div>
+        <div class="form-group" style="margin-bottom:14px">
+          <label>Document Title</label>
+          <input type="text" id="doc-title" name="document_title" placeholder="e.g. P&ID — Feed Water System" style="width:100%">
+        </div>
+        <div class="form-group" style="margin-bottom:14px">
+          <label>Revision Number</label>
+          <input type="text" id="doc-rev" name="revision_number" placeholder="0" value="0" style="width:120px">
+        </div>
+        <div class="form-group" style="margin-bottom:20px">
+          <label>File (PDF or Image)</label>
+          <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+            <div id="drop-label" style="color:var(--text-muted)">
+              Click or drag & drop a PDF / image here
+            </div>
+          </div>
+          <input type="file" id="file-input" name="file" accept=".pdf,.png,.jpg,.jpeg,.tiff" style="display:none">
+        </div>
+        <button type="submit" class="btn btn-primary" id="submit-btn" style="width:100%">
+          ▶ Start Verification
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Result panel -->
+  <div id="result-panel">
+    <!-- Summary cards -->
+    <div class="grid grid-2 gap-16" id="summary-cards" style="margin-bottom:16px"></div>
+    <!-- Per-tag results -->
+    <div class="card" style="padding:0">
+      <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <strong>Tag Results</strong>
+        <span id="tag-count" class="text-muted"></span>
+      </div>
+      <div id="tag-results"></div>
+    </div>
+    <!-- Approve button -->
+    <div id="approve-section" style="display:none;margin-top:16px">
+      <div class="card">
+        <div class="card-title">Override & Issue</div>
+        <p style="margin-bottom:12px;color:var(--text-muted);font-size:13px">
+          This document has issues. Provide a justification to override and approve.
+        </p>
+        <input type="text" id="justification-input" placeholder="Justification…" style="width:100%;margin-bottom:10px">
+        <button class="btn btn-warning" id="approve-btn" onclick="approveRevision()">Issue with Override</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let currentSessionId = null;
+let currentRevisionId = null;
+
+// Drop zone
+const dz = document.getElementById('drop-zone');
+const fi = document.getElementById('file-input');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('dragover');
+  fi.files = e.dataTransfer.files;
+  document.getElementById('drop-label').textContent = fi.files[0].name;
+});
+fi.addEventListener('change', () => {
+  if (fi.files[0]) document.getElementById('drop-label').textContent = fi.files[0].name;
+});
+
+// Form submit
+document.getElementById('verify-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById('submit-btn');
+  btn.innerHTML = '<span class="spinner"></span> Verifying…';
+  btn.disabled = true;
+
+  const fd = new FormData(e.target);
+  try {
+    const res = await fetch('/api/v1/verify/', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || 'Verification failed'); return; }
+    renderResults(data);
+  } catch (err) {
+    alert('Network error: ' + err.message);
+  } finally {
+    btn.innerHTML = '▶ Start Verification';
+    btn.disabled = false;
+  }
+});
+
+function statusBadge(s) {
+  const map = {
+    valid_active: '<span class="badge badge-active">✓ Active</span>',
+    valid_void:   '<span class="badge badge-void">⚠ Void</span>',
+    not_found:    '<span class="badge badge-issues">✕ Not Found</span>',
+    shorthand_detected: '<span class="badge badge-shorthand">~ Shorthand</span>',
+  };
+  return map[s] || `<span class="badge badge-pending">${s}</span>`;
+}
+
+function renderResults(data) {
+  const panel = document.getElementById('result-panel');
+  panel.style.display = 'block';
+  currentSessionId = data.session_id;
+
+  // Summary cards
+  const s = data.summary;
+  const overall = s.overall_status;
+  document.getElementById('summary-cards').innerHTML = `
+    <div class="card"><div class="card-title">Overall</div>
+      <div class="card-value" style="color:${overall==='pass'?'#10b981':'#f59e0b'}">${overall==='pass'?'✓ PASS':'⚠ ISSUES'}</div>
+      <div class="card-sub">${s.total} tags · ${(data.duration_seconds||0).toFixed(2)}s</div>
+    </div>
+    <div class="card"><div class="card-title">Extraction</div>
+      <div style="font-size:15px;font-weight:600;margin-top:4px">${data.extraction_method}</div>
+      <div class="card-sub">${data.page_count} page(s)</div>
+    </div>
+    <div class="card"><div class="card-title">Valid Active</div>
+      <div class="card-value" style="color:#10b981">${s.valid_active}</div></div>
+    <div class="card"><div class="card-title">Issues</div>
+      <div class="card-value" style="color:#ef4444">${s.not_found + s.valid_void}</div>
+      <div class="card-sub">${s.not_found} not found · ${s.valid_void} void</div>
+    </div>
+  `;
+
+  // Tag rows
+  document.getElementById('tag-count').textContent = `${data.tags.length} tag(s)`;
+  const html = data.tags.map(t => `
+    <div class="result-row">
+      <span style="font-family:monospace;font-weight:600;min-width:130px">${t.tag_number}</span>
+      ${statusBadge(t.verification_status)}
+      <span class="text-muted" style="flex:1;font-size:12px">${t.ctdb_description || ''}</span>
+      ${t.page_number ? `<span class="text-muted" style="font-size:11px">p.${t.page_number}</span>` : ''}
+    </div>
+  `).join('');
+  document.getElementById('tag-results').innerHTML = html || '<div style="padding:20px;text-align:center;color:var(--text-muted)">No tags found</div>';
+
+  // Approve section
+  const approveSection = document.getElementById('approve-section');
+  if (s.overall_status === 'issues') {
+    approveSection.style.display = 'block';
+    currentRevisionId = data.revision_id;
+  } else {
+    approveSection.style.display = 'none';
+  }
+}
+
+async function approveRevision() {
+  const justification = document.getElementById('justification-input').value.trim();
+  if (!justification) { alert('Please enter a justification.'); return; }
+  if (!currentSessionId) return;
+
+  // Find revision from most recent document
+  const res = await fetch(`/api/v1/verification-sessions/${currentSessionId}/`);
+  if (!res.ok) return;
+  const session = await res.json();
+  const revId = session.document_revision;
+
+  const approveRes = await fetch(`/api/v1/document-revisions/${revId}/approve/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+    body: JSON.stringify({ justification }),
+  });
+  if (approveRes.ok) {
+    document.getElementById('approve-section').innerHTML =
+      '<div class="alert alert-success">✓ Document approved with override.</div>';
+  }
+}
+
+function getCookie(name) {
+  return document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith(name+'='))?.split('=')[1] || '';
+}
+</script>
+{% endblock %}

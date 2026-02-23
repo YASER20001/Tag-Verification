@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}{{ tag.tag_number }} — Tag Verification{% endblock %}
+{% block content %}
+
+<div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+  <div>
+    <div class="page-title">
+      {{ tag.tag_number }}
+      {% if tag.status == "Active" %}<span class="badge badge-active" style="font-size:14px;margin-left:10px">Active</span>
+      {% elif tag.status == "Void" %}<span class="badge badge-void" style="font-size:14px;margin-left:10px">Void</span>
+      {% else %}<span class="badge badge-pending" style="font-size:14px;margin-left:10px">{{ tag.status }}</span>{% endif %}
+      {% if tag.is_safety_critical %}<span class="badge badge-safety" style="font-size:14px;margin-left:6px">Safety Critical</span>{% endif %}
+    </div>
+    <div class="page-subtitle">{{ tag.tag_description }}</div>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <a href="/api/v1/tags/{{ tag.pk }}/" class="btn btn-ghost">JSON</a>
+    <a href="/api/v1/tags/{{ tag.pk }}/impact/" class="btn btn-ghost">Impact</a>
+    <form method="post" action="/api/v1/tags/{{ tag.pk }}/toggle-status/" style="display:inline">
+      {% csrf_token %}
+      <button type="submit" class="btn {% if tag.status == 'Active' %}btn-danger{% else %}btn-success{% endif %}">
+        {% if tag.status == "Active" %}Void Tag{% else %}Reactivate Tag{% endif %}
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="grid grid-2 gap-16 mt-24">
+
+  <!-- Core details -->
+  <div class="card">
+    <div class="card-title">Core Details</div>
+    <table style="width:100%;border-collapse:collapse">
+      <tr><td style="padding:6px 0;color:var(--text-muted);width:140px">Tag Number</td><td class="mono">{{ tag.tag_number }}</td></tr>
+      <tr><td style="padding:6px 0;color:var(--text-muted)">Description</td><td>{{ tag.tag_description|default:"—" }}</td></tr>
+      <tr><td style="padding:6px 0;color:var(--text-muted)">Discipline</td><td>{{ tag.discipline.name|default:"—" }}</td></tr>
+      <tr><td style="padding:6px 0;color:var(--text-muted)">Tag Class</td><td>{{ tag.tag_class.name|default:"—" }}</td></tr>
+      <tr><td style="padding:6px 0;color:var(--text-muted)">Criticality</td><td>{{ tag.criticality_level.name|default:"—" }}</td></tr>
+      <tr><td style="padding:6px 0;color:var(--text-muted)">Alias</td><td>{{ tag.alias|default:"—" }}</td></tr>
+      <tr><td style="padding:6px 0;color:var(--text-muted)">Service Desc.</td><td>{{ tag.service_description|default:"—" }}</td></tr>
+    </table>
+  </div>
+
+  <!-- Hierarchy -->
+  <div class="card">
+    <div class="card-title">Plant Hierarchy</div>
+    <table style="width:100%;border-collapse:collapse">
+      <tr><td style="padding:6px 0;color:var(--text-muted);width:140px">Plant</td><td>{{ tag.plant|default:"—" }}</td></tr>
+      <tr><td style="padding:6px 0;color:var(--text-muted)">Area</td><td>{{ tag.area|default:"—" }}</td></tr>
+      <tr><td style="padding:6px 0;color:var(--text-muted)">Unit</td><td>{{ tag.unit|default:"—" }}</td></tr>
+      <tr><td style="padding:6px 0;color:var(--text-muted)">System</td><td>{{ tag.system|default:"—" }}</td></tr>
+    </table>
+  </div>
+
+  <!-- Engineering -->
+  <div class="card">
+    <div class="card-title">Engineering References</div>
+    <table style="width:100%;border-collapse:collapse">
+      <tr><td style="padding:6px 0;color:var(--text-muted);width:140px">P&amp;ID No.</td><td class="mono">{{ tag.p_and_id_number|default:"—" }}</td></tr>
+      <tr><td style="padding:6px 0;color:var(--text-muted)">Drawing No.</td><td class="mono">{{ tag.drawing_number|default:"—" }}</td></tr>
+      <tr><td style="padding:6px 0;color:var(--text-muted)">Line No.</td><td class="mono">{{ tag.line_number|default:"—" }}</td></tr>
+      <tr><td style="padding:6px 0;color:var(--text-muted)">Spec No.</td><td class="mono">{{ tag.spec_number|default:"—" }}</td></tr>
+      <tr><td style="padding:6px 0;color:var(--text-muted)">P.O. No.</td><td class="mono">{{ tag.purchase_order_number|default:"—" }}</td></tr>
+    </table>
+  </div>
+
+  <!-- Physical / Manufacturer -->
+  <div class="card">
+    <div class="card-title">Physical Attributes</div>
+    <table style="width:100%;border-collapse:collapse">
+      <tr><td style="padding:6px 0;color:var(--text-muted);width:140px">Manufacturer</td><td>{{ tag.manufacturer|default:"—" }}</td></tr>
+      <tr><td style="padding:6px 0;color:var(--text-muted)">Model</td><td>{{ tag.model_number|default:"—" }}</td></tr>
+      <tr><td style="padding:6px 0;color:var(--text-muted)">Serial No.</td><td class="mono">{{ tag.serial_number|default:"—" }}</td></tr>
+      <tr><td style="padding:6px 0;color:var(--text-muted)">Size</td><td>{{ tag.size_rating|default:"—" }}</td></tr>
+      <tr><td style="padding:6px 0;color:var(--text-muted)">Design Press.</td><td>{{ tag.design_pressure_barg|default:"—" }}{% if tag.design_pressure_barg %} barg{% endif %}</td></tr>
+      <tr><td style="padding:6px 0;color:var(--text-muted)">Design Temp.</td><td>{{ tag.design_temperature_c|default:"—" }}{% if tag.design_temperature_c %}°C{% endif %}</td></tr>
+    </table>
+  </div>
+
+</div>
+
+<!-- Documents referencing this tag -->
+{% if links %}
+<div class="mt-24">
+  <div class="section-title">Documents Referencing This Tag ({{ links|length }})</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Document No.</th><th>Revision</th><th>Verification Status</th><th>Page</th><th>Shorthand</th><th>Linked</th></tr>
+      </thead>
+      <tbody>
+        {% for lnk in links %}
+        <tr>
+          <td class="mono">{{ lnk.document_revision.document.document_number }}</td>
+          <td>Rev {{ lnk.document_revision.revision_number }}</td>
+          <td>
+            {% with s=lnk.verification_status %}
+              {% if s == "valid_active" %}<span class="badge badge-active">✓ Active</span>
+              {% elif s == "valid_void" %}<span class="badge badge-void">⚠ Void</span>
+              {% elif s == "not_found" %}<span class="badge badge-issues">✕ Not Found</span>
+              {% elif s == "shorthand_detected" %}<span class="badge badge-shorthand">~ Shorthand</span>
+              {% else %}<span class="badge badge-pending">{{ s }}</span>{% endif %}
+            {% endwith %}
+          </td>
+          <td class="text-muted">{{ lnk.page_number|default:"—" }}</td>
+          <td class="text-muted">{% if lnk.is_shorthand %}{{ lnk.original_shorthand }}{% else %}—{% endif %}</td>
+          <td class="text-muted">{{ lnk.created_at|date:"Y-m-d" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Status History -->
+{% if history %}
+<div class="mt-24">
+  <div class="section-title">Status Change History</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>From</th><th>To</th><th>Changed By</th><th>Reason</th><th>Date</th></tr></thead>
+      <tbody>
+        {% for h in history %}
+        <tr>
+          <td><span class="badge badge-{% if h.old_status == 'Active' %}active{% else %}void{% endif %}">{{ h.old_status }}</span></td>
+          <td><span class="badge badge-{% if h.new_status == 'Active' %}active{% else %}void{% endif %}">{{ h.new_status }}</span></td>
+          <td class="text-muted">{{ h.changed_by.username|default:"system" }}</td>
+          <td class="text-muted">{{ h.reason|default:"—" }}</td>
+          <td class="text-muted">{{ h.changed_at|date:"Y-m-d H:i" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Custom Attributes -->
+{% with attrs=tag.attributes.all %}
+{% if attrs %}
+<div class="mt-24">
+  <div class="section-title">Custom Attributes</div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Attribute</th><th>Value</th><th>Type</th><th>Unit</th></tr></thead>
+      <tbody>
+        {% for a in attrs %}
+        <tr>
+          <td>{{ a.attribute_name }}</td>
+          <td>{{ a.attribute_value }}</td>
+          <td class="text-muted">{{ a.attribute_type }}</td>
+          <td class="text-muted">{{ a.unit_of_measure|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="mt-24" style="display:flex;gap:10px;">
+  <a href="/tags/" class="btn btn-ghost">← Back to Tag List</a>
+  <a href="/impact/?tag={{ tag.tag_number }}" class="btn btn-ghost">🔗 Full Impact Analysis</a>
+</div>
+{% endblock %}

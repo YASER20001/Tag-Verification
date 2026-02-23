@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Tag Database — Tag Verification{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Tag Database (CTDB)</div>
+  <div class="page-subtitle">Browse, search, and manage all registered tags</div>
+</div>
+
+<!-- Filters -->
+<form method="get" class="form-row" style="margin-bottom:20px;">
+  <div class="form-group">
+    <label>Search</label>
+    <input type="text" name="q" value="{{ search }}" placeholder="Tag number or description…" style="width:260px">
+  </div>
+  <div class="form-group">
+    <label>Discipline</label>
+    <select name="discipline">
+      <option value="">All Disciplines</option>
+      {% for d in disciplines %}
+        <option value="{{ d }}" {% if d == selected_discipline %}selected{% endif %}>{{ d }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Status</label>
+    <select name="status">
+      <option value="">All Statuses</option>
+      {% for val, label in statuses %}
+        <option value="{{ val }}" {% if val == selected_status %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="form-group" style="justify-content:flex-end">
+    <button type="submit" class="btn btn-primary">Filter</button>
+    <a href="/tags/" class="btn btn-ghost" style="margin-left:8px">Reset</a>
+  </div>
+</form>
+
+<div style="display:flex;gap:12px;margin-bottom:16px;align-items:center;">
+  <span class="text-muted">Showing {{ tags|length }} tag(s)</span>
+  <a href="/api/v1/tags/export-csv/?{% if search %}search={{ search }}&{% endif %}{% if selected_status %}status={{ selected_status }}{% endif %}"
+     class="btn btn-ghost" style="margin-left:auto;font-size:12px">⬇ Export CSV</a>
+</div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Tag Number</th>
+        <th>Description</th>
+        <th>Discipline</th>
+        <th>Status</th>
+        <th>Plant</th>
+        <th>Safety</th>
+        <th>Updated</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for tag in tags %}
+      <tr>
+        <td>
+          <a href="/tags/{{ tag.pk }}/" class="mono" style="font-weight:600">{{ tag.tag_number }}</a>
+        </td>
+        <td class="text-muted">{{ tag.tag_description|truncatechars:55 }}</td>
+        <td>{{ tag.discipline.name|default:"—" }}</td>
+        <td>
+          {% if tag.status == "Active" %}
+            <span class="badge badge-active">● Active</span>
+          {% elif tag.status == "Void" %}
+            <span class="badge badge-void">✕ Void</span>
+          {% else %}
+            <span class="badge badge-pending">{{ tag.status }}</span>
+          {% endif %}
+        </td>
+        <td class="text-muted">{{ tag.plant.code|default:"—" }}</td>
+        <td>{% if tag.is_safety_critical %}<span class="badge badge-safety">SIL</span>{% endif %}</td>
+        <td class="text-muted">{{ tag.updated_at|date:"Y-m-d" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="text-muted" style="text-align:center;padding:32px">No tags found</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="mt-24" style="display:flex;gap:12px;">
+  <a href="/api/v1/tags/" class="btn btn-ghost">🔗 API: All Tags</a>
+  <a href="/api/v1/tags/stats/" class="btn btn-ghost">📊 API: Stats</a>
+</div>
+{% endblock %}

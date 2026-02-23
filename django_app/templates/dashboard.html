@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Tag Verification{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Dashboard</div>
+  <div class="page-subtitle">Overview of the tag database and document verification status</div>
+</div>
+
+<!-- KPI Cards -->
+<div class="grid grid-4" style="margin-bottom:24px">
+  <div class="card">
+    <div class="card-title">Total Tags (CTDB)</div>
+    <div class="card-value" style="color:#3b82f6">{{ total_tags }}</div>
+    <div class="card-sub">{{ active_tags }} Active · {{ void_tags }} Void</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Safety Critical Tags</div>
+    <div class="card-value" style="color:#ef4444">{{ safety_tags }}</div>
+    <div class="card-sub">Require SIL study or safety review</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Documents Verified</div>
+    <div class="card-value" style="color:#10b981">{{ passed_docs }}</div>
+    <div class="card-sub">{{ issue_docs }} with issues · {{ pending_docs }} pending</div>
+  </div>
+  <div class="card">
+    <div class="card-title">Total Revisions</div>
+    <div class="card-value" style="color:#8b5cf6">{{ total_docs }}</div>
+    <div class="card-sub">Document revisions processed</div>
+  </div>
+</div>
+
+<div class="grid grid-2 gap-16">
+
+  <!-- Tags by discipline -->
+  <div>
+    <div class="section-title">Tags by Discipline</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Discipline</th><th>Count</th><th>% of Total</th></tr>
+        </thead>
+        <tbody>
+          {% for row in by_discipline %}
+          <tr>
+            <td>
+              {% if row.discipline__colour %}
+                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:{{ row.discipline__colour }};margin-right:8px;"></span>
+              {% endif %}
+              {{ row.discipline__name|default:"(unclassified)" }}
+            </td>
+            <td><strong>{{ row.count }}</strong></td>
+            <td class="text-muted">
+              {% if total_tags %}{% widthratio row.count total_tags 100 %}%{% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="3" class="text-muted">No tags found</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Void tag alerts -->
+  <div>
+    <div class="section-title">⚠ Void Tag Alerts</div>
+    {% if void_alerts %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Tag Number</th><th>Description</th><th>Affected Docs</th></tr>
+        </thead>
+        <tbody>
+          {% for alert in void_alerts %}
+          <tr>
+            <td><a href="/tags/?q={{ alert.tag__tag_number }}" class="mono">{{ alert.tag__tag_number }}</a></td>
+            <td class="text-muted">{{ alert.tag__tag_description|truncatechars:40 }}</td>
+            <td><span class="badge badge-issues">{{ alert.doc_count }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="alert alert-success">No void tags referenced in any verified document.</div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Quick links -->
+<div class="mt-24" style="display:flex;gap:12px;flex-wrap:wrap;">
+  <a href="/verify/" class="btn btn-primary">▶ Verify a Document</a>
+  <a href="/tags/"   class="btn btn-ghost">📋 Browse Tag Database</a>
+  <a href="/impact/" class="btn btn-ghost">🔗 Impact Analysis</a>
+  <a href="/api/v1/dashboard/stats/" class="btn btn-ghost">📊 Raw API Stats</a>
+</div>
+{% endblock %}

@@ -35,3 +35,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+django_app/tag_verify.db
+django_app/__pycache__/
+django_app/uploads/

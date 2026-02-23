@@ -1,0 +1,12 @@
+django==5.2.11
+djangorestframework==3.16.1
+django-filter==25.2
+
+# PDF extraction
+PyMuPDF==1.24.3
+pillow==10.3.0
+pytesseract==0.3.10    # optional — requires tesseract binary
+
+# Data / utilities
+pandas==2.2.2
+reportlab==4.2.0       # for regenerating sample PDFs

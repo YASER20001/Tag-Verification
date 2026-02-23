@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Documents — Tag Verification{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Documents</div>
+  <div class="page-subtitle">All documents that have been through verification</div>
+</div>
+
+<form method="get" class="form-row">
+  <div class="form-group">
+    <label>Search</label>
+    <input type="text" name="q" value="{{ search }}" placeholder="Document number or title…" style="width:280px">
+  </div>
+  <div class="form-group" style="justify-content:flex-end">
+    <button type="submit" class="btn btn-primary">Filter</button>
+    <a href="/documents/" class="btn btn-ghost" style="margin-left:8px">Reset</a>
+  </div>
+</form>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Document No.</th><th>Title</th><th>Type</th>
+        <th>Revision</th><th>Verification</th><th>Created</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for doc in documents %}
+      <tr>
+        <td class="mono"><strong>{{ doc.document_number }}</strong></td>
+        <td>{{ doc.title|truncatechars:60 }}</td>
+        <td class="text-muted">{{ doc.document_type.name|default:"—" }}</td>
+        <td class="text-muted">
+          {% if doc.current_revision %}Rev {{ doc.current_revision.revision_number }}{% else %}—{% endif %}
+        </td>
+        <td>
+          {% with s=doc.current_revision.verification_status|default:"pending" %}
+            {% if s == "pass" %}<span class="badge badge-pass">✓ Pass</span>
+            {% elif s == "issues" %}<span class="badge badge-issues">⚠ Issues</span>
+            {% elif s == "approved" %}<span class="badge badge-approved">✓ Approved</span>
+            {% else %}<span class="badge badge-pending">{{ s }}</span>{% endif %}
+          {% endwith %}
+        </td>
+        <td class="text-muted">{{ doc.created_at|date:"Y-m-d" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="text-muted" style="text-align:center;padding:32px">
+        No documents yet. <a href="/verify/">Verify one now →</a>
+      </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="mt-24" style="display:flex;gap:12px;">
+  <a href="/verify/" class="btn btn-primary">▶ Verify New Document</a>
+  <a href="/api/v1/documents/" class="btn btn-ghost">🔗 API: Documents</a>
+</div>
+{% endblock %}

@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Impact Analysis — Tag Verification{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-title">Impact Analysis</div>
+  <div class="page-subtitle">Find all documents that reference a specific tag number</div>
+</div>
+
+<form method="get" class="form-row" style="margin-bottom:24px">
+  <div class="form-group">
+    <label>Tag Number</label>
+    <input type="text" name="tag" value="{{ tag_number }}" placeholder="e.g. 10-P-101A"
+           style="width:240px;text-transform:uppercase">
+  </div>
+  <div class="form-group" style="justify-content:flex-end">
+    <button type="submit" class="btn btn-primary">Search</button>
+  </div>
+</form>
+
+{% if tag_number %}
+  {% if tag %}
+  <div class="card" style="margin-bottom:20px">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:20px;font-weight:700" class="mono">{{ tag.tag_number }}</div>
+        <div class="text-muted" style="font-size:13px">{{ tag.tag_description }}</div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:10px;align-items:center">
+        {% if tag.status == "Active" %}<span class="badge badge-active" style="font-size:14px">Active</span>
+        {% elif tag.status == "Void" %}<span class="badge badge-void" style="font-size:14px">Void — may affect {{ links|length }} document(s)</span>
+        {% endif %}
+        {% if tag.is_safety_critical %}<span class="badge badge-safety">Safety Critical</span>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if tag.status == "Void" and links %}
+  <div class="alert alert-warning">
+    ⚠ This tag is <strong>Void</strong> and appears in {{ links|length }} document revision(s). Review required.
+  </div>
+  {% endif %}
+
+  {% if links %}
+  <div class="section-title">Referenced in {{ links|length }} Document Revision(s)</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Document No.</th><th>Revision</th><th>Verification</th><th>Page</th><th>Shorthand</th><th>Date</th></tr>
+      </thead>
+      <tbody>
+        {% for lnk in links %}
+        <tr>
+          <td class="mono"><strong>{{ lnk.document_revision.document.document_number }}</strong></td>
+          <td>Rev {{ lnk.document_revision.revision_number }}</td>
+          <td>
+            {% with s=lnk.verification_status %}
+              {% if s == "valid_active" %}<span class="badge badge-active">✓ Active</span>
+              {% elif s == "valid_void" %}<span class="badge badge-void">⚠ Void</span>
+              {% elif s == "not_found" %}<span class="badge badge-issues">✕ Not Found</span>
+              {% elif s == "shorthand_detected" %}<span class="badge badge-shorthand">~ Shorthand</span>
+              {% else %}<span class="badge badge-pending">{{ s }}</span>{% endif %}
+            {% endwith %}
+          </td>
+          <td class="text-muted">{{ lnk.page_number|default:"—" }}</td>
+          <td class="text-muted">{% if lnk.is_shorthand %}{{ lnk.original_shorthand }}{% else %}—{% endif %}</td>
+          <td class="text-muted">{{ lnk.created_at|date:"Y-m-d" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="alert alert-info">
+    Tag <strong>{{ tag.tag_number }}</strong> has not been referenced in any verified document yet.
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="alert alert-warning">
+    Tag <strong class="mono">{{ tag_number }}</strong> was not found in the CTDB.
+  </div>
+  {% endif %}
+{% endif %}
+
+<div class="mt-24">
+  <a href="/api/v1/tags/?search={{ tag_number }}" class="btn btn-ghost">🔗 API: Tag Detail</a>
+</div>
+{% endblock %}
