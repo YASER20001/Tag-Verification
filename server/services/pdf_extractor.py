@@ -47,7 +47,10 @@ def _try_pdfplumber(file_bytes: bytes) -> Optional[dict]:
         try:
             import pdfplumber as _pb  # noqa: F401
             _PDFPLUMBER_OK = True
-        except Exception:
+        except BaseException as exc:
+            # Re-raise genuine interrupts; swallow import failures (incl. pyo3 panics)
+            if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+                raise
             _PDFPLUMBER_OK = False
         _PDFPLUMBER_PROBED = True
     if not _PDFPLUMBER_OK:
@@ -72,7 +75,9 @@ def _try_pypdf(file_bytes: bytes) -> Optional[dict]:
         try:
             import pypdf as _pp  # noqa: F401
             _PYPDF_OK = True
-        except Exception:
+        except BaseException as exc:
+            if isinstance(exc, (KeyboardInterrupt, SystemExit)):
+                raise
             _PYPDF_OK = False
         _PYPDF_PROBED = True
     if not _PYPDF_OK:
