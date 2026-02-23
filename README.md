@@ -8,11 +8,11 @@ A self-service web application that allows engineers and drafters to upload proj
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 18 + Vite + Tailwind CSS |
-| Backend | Python 3.11+ + FastAPI |
-| Database | SQLite (via SQLAlchemy async) |
-| PDF Extraction | pdfplumber (digital), PyMuPDF + pytesseract (scanned) |
-| Charts | Recharts |
+| **Frontend** | **Python — Streamlit 1.40+** (no npm, no JavaScript) |
+| Charts | Plotly (via `plotly.express`) |
+| Backend / DB | Python — SQLAlchemy (sync) + SQLite |
+| PDF Extraction | PyMuPDF (primary), pytesseract OCR (scanned docs/images) |
+| Optional API | FastAPI + uvicorn (REST API alternative — same DB) |
 
 ---
 
@@ -20,54 +20,48 @@ A self-service web application that allows engineers and drafters to upload proj
 
 ```
 tag-verify/
-├── client/                    # React frontend
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── Dashboard.jsx          # Overview & alerts
-│   │   │   ├── Upload.jsx             # 4-step upload flow
-│   │   │   ├── VerificationReport.jsx # Tag verification results
-│   │   │   ├── TagDatabase.jsx        # CTDB admin view
-│   │   │   └── ImpactAnalysis.jsx     # Tag-to-document lookup
-│   │   ├── utils/
-│   │   │   ├── api.js                 # Axios API calls
-│   │   │   └── helpers.js             # Status configs & formatting
-│   │   ├── App.jsx
-│   │   └── main.jsx
-│   └── package.json
-│
-├── server/                    # FastAPI backend
-│   ├── routes/
-│   │   ├── tags.py            # CTDB CRUD + CSV import
-│   │   ├── documents.py       # Upload & verification
-│   │   ├── relationships.py   # Tag-document links
-│   │   └── dashboard.py       # Stats & alerts
-│   ├── services/
-│   │   ├── pdf_extractor.py   # PDF/image text extraction
-│   │   ├── tag_detector.py    # Regex + shorthand expansion
-│   │   └── verifier.py        # Compare against CTDB
+├── server/                        # Everything runs from here — pure Python
+│   ├── app.py                     # 🚀 Streamlit entry point (run this)
+│   ├── pages/
+│   │   ├── 1_📊_Dashboard.py      # Stats, charts, void alerts
+│   │   ├── 2_📄_Verify_Document.py # 4-step upload & verification flow
+│   │   ├── 3_🗃️_Tag_Database.py   # CTDB admin — add, toggle, import
+│   │   ├── 4_🔗_Impact_Analysis.py # Tag → document traceability
+│   │   └── _shared.py             # CSS, stepper helper, status maps
 │   ├── db/
-│   │   ├── models.py          # SQLAlchemy ORM models
-│   │   └── database.py        # DB init, session, seed data
-│   ├── uploads/               # Uploaded files (auto-created)
-│   └── main.py                # FastAPI app entry point
+│   │   ├── models.py              # SQLAlchemy ORM models
+│   │   ├── database.py            # Async layer (for FastAPI)
+│   │   └── db_sync.py             # Sync layer (for Streamlit) ← main DB layer
+│   ├── services/
+│   │   ├── pdf_extractor.py       # PDF/image text extraction (PyMuPDF)
+│   │   ├── tag_detector.py        # Regex + shorthand expansion
+│   │   └── verifier.py            # Async verifier (for FastAPI)
+│   ├── routes/                    # Optional FastAPI REST API
+│   │   ├── tags.py
+│   │   ├── documents.py
+│   │   ├── relationships.py
+│   │   └── dashboard.py
+│   ├── main.py                    # Optional FastAPI entry point
+│   ├── .streamlit/config.toml     # Theme & server config
+│   └── requirements.txt
 │
-├── sample_docs/               # Test PDFs
-│   ├── test_doc_1_should_pass.pdf
-│   ├── test_doc_2_has_issues.pdf
-│   └── test_doc_3_shorthand.pdf
+└── sample_docs/
+    ├── test_doc_1_should_pass.pdf
+    ├── test_doc_2_has_issues.pdf
+    └── test_doc_3_shorthand.pdf
 ```
 
 ---
 
-## Quick Start
+## Quick Start — Pure Python, No npm
 
 ### Prerequisites
 
 - Python 3.11+
-- Node.js 18+
-- (Optional) Tesseract OCR for scanned PDFs: `apt install tesseract-ocr` or `brew install tesseract`
+- (Optional) Tesseract OCR for scanned images: `apt install tesseract-ocr` or `brew install tesseract`
+- **No Node.js required**
 
-### 1. Backend
+### Run
 
 ```bash
 cd server
@@ -84,12 +78,20 @@ API docs: http://localhost:8000/docs
 ### 2. Frontend
 
 ```bash
-cd client
-npm install
-npm run dev
+pip install -r requirements.txt
+streamlit run app.py
 ```
 
-Open: http://localhost:5173
+Open: **http://localhost:8501**
+
+That's it — one command, pure Python, no npm.
+
+### Optional: FastAPI REST API (same database)
+
+```bash
+uvicorn main:app --reload --port 8000
+# API docs: http://localhost:8000/docs
+```
 
 ---
 
